@@ -89,9 +89,12 @@ import sys
 import time
 import getpass
 import random
+import base64
+import platform
 import urllib.request, urllib.parse, urllib.error
 import urllib.request, urllib.error, urllib.parse
 from urllib.parse import urlparse
+from shutil import which
 
 from os.path import abspath, dirname, exists, isdir, join
 
@@ -110,26 +113,22 @@ seafile_worktree = None
 
 def _check_seafile():
     ''' Check seafile daemon have been installed '''
-
-    dirs = os.environ['PATH'].split(':')
-    def exist_in_path(prog):
-        ''' Check whether 'prog' exists in system path '''
-        for d in dirs:
-            if d == '':
-                continue
-            path = join(d, prog)
-            if exists(path):
-                return True
+    
 
     progs = ['seaf-daemon']
 
     for prog in progs:
-        if not exist_in_path(prog):
+        if which(prog) is None:
             print("%s not found in PATH. Have you installed seafile?" % prog)
             sys.exit(1)
 
 def get_rpc_client(confdir):
-    return seafile.RpcClient(join(seafile_datadir, 'seafile.sock'))
+    if(platform.system() == 'Windows'):
+        userb64 = base64.b64encode(os.getlogin().encode('ascii')).decode('ascii')
+        return seafile.TipiWinRpcClient(f"seafile_{userb64}")
+    else:
+        return seafile.RpcClient(join(seafile_datadir, 'seafile.sock'))
+    
 
 def _config_valid(conf):
     ''' Check config directory valid '''
@@ -355,6 +354,7 @@ def seaf_start_seafile(args):
 
     cmd = [ "seaf-daemon", "--daemon", "-c", conf_dir, "-d", seafile_datadir,
             "-w", seafile_worktree ]
+
     if run_argv(cmd, env=get_env()) != 0:
         print('Failed to start seafile daemon')
         sys.exit(1)
