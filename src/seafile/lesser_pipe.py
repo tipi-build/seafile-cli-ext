@@ -60,7 +60,7 @@ class ExhaustingPipe:
             raise Exception('Pipe Set Mode Failed [%s]' % err)
             return
 
-        self.bufSize = 100
+        self.bufSize = 4096
         self.isActive = True
 
     def close(self):
