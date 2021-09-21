@@ -101,8 +101,13 @@ from os.path import abspath, dirname, exists, isdir, join
 import seafile
 
 if 'HOME' in os.environ:
-    DEFAULT_CONF_DIR = "%s/.ccnet" % os.environ['HOME']
-    DEFAULT_USER_CONF_DIR = "%s/.seafile.conf" % os.environ['HOME']    
+    _home = os.environ['HOME']
+    DEFAULT_CONF_DIR = "%s/.ccnet" % _home
+    DEFAULT_USER_CONF_DIR = "%s/.seafile.conf" % _home  
+elif platform.system() == 'Windows' and 'USERPROFILE' in os.environ:
+    _home = os.environ['USERPROFILE']
+    DEFAULT_CONF_DIR = "%s\\.ccnet" % _home
+    DEFAULT_USER_CONF_DIR = "%s\\.seafile.conf" % _home  
 else:
     DEFAULT_CONF_DIR = None
     DEFAULT_USER_CONF_DIR = None
@@ -277,15 +282,15 @@ def get_device_id(conf_dir):
     return device_id
 
 def get_token(url, username, password, tfa, conf_dir):
-    platform = 'linux'
+    platform_name = platform.system().lower()
     device_id = get_device_id(conf_dir)
-    device_name = 'terminal-' + os.uname()[1]
+    device_name = 'terminal-' + platform.node()
     client_version = SEAF_CLI_VERSION
     platform_version = ''
     data = {
         'username': username,
         'password': password,
-        'platform': platform,
+        'platform': platform_name,
         'device_id': device_id,
         'device_name': device_name,
         'client_version': client_version,
