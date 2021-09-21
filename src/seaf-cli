@@ -377,7 +377,7 @@ def seaf_stop(args):
         seafile_rpc.shutdown()
     except:
         # ignore NetworkError("Failed to read from socket")
-        pass
+        exit(-1)
 
 
 def seaf_list(args):

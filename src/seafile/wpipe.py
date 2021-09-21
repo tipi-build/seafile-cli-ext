@@ -44,9 +44,6 @@ class Mode:
 
 
 class Base:
-    def __init__(self) -> None:
-        self.stopping = False
-
     def readerentry(self, nph, client, mode, server):
         rq = client.rq
         wq = client.wq
@@ -61,9 +58,6 @@ class Base:
                 writes have been completed. If we never need to read
                 then we should be using Mode.Writer not Mode.Master.
             '''
-            def is_stopping():
-                return self.stopping
-
             if mode == Mode.Master:
                 with client.rwait:
                     client.rwait.wait(timeout=0.1)
@@ -80,7 +74,8 @@ class Base:
             #print("rlock read: ", ret)
 
             if ret == 0:
-                continue
+                self.stopping = True
+                return
 
             #print("cnt: ", cnt)
             cnt = struct.unpack('I', cnt)[0]
@@ -110,6 +105,7 @@ class Base:
 
             try:
                 rawmsg = wq.get(timeout=0.1)
+
             except:
                 if self.stopping: return
                 else: continue
@@ -171,7 +167,10 @@ class ServerClient:
         if Mode.is_writer(self.mode):
             raise Exception('This pipe is in write mode!')
 
-        return self.rq.get()
+        try:
+            return self.rq.get(timeout = 0.1)
+        except:
+            return ""
 
     def write(self, message, partial = False):
         if not self.alive:

@@ -48,7 +48,7 @@ class TipiSeafWindowsNamedPipeTransport(SearpcTransport):
         self.pipe.write(body_utf8)
         reply = self.pipe.read()
         
-        if reply is None: 
+        if reply is None or isinstance(reply, str): 
           return ""
         
         resp_size = struct.unpack('=I', reply[:4])[0]
