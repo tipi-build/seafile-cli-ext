@@ -1,2 +1,2 @@
 @echo off
-python %~dp0seaf-cli
+python %~dp0seaf-cli %*
