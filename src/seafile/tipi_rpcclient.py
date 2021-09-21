@@ -3,9 +3,7 @@ from logging import exception
 import struct
 import os
 from pysearpc import searpc_func, SearpcError, NamedPipeClient, SearpcTransport, SearpcClient
-from seafile import wpipe
-
-
+from seafile import lesser_pipe
 
 class TipiSeafWindowsNamedPipeTransport(SearpcTransport):
     
@@ -15,16 +13,7 @@ class TipiSeafWindowsNamedPipeTransport(SearpcTransport):
         self.pipename = pipename
 
     def connect(self):
-        
-        # Open the named pipe 
-        #self.pipe = win32file.CreateFile(self.pipename, win32file.GENERIC_READ | win32file.GENERIC_WRITE, 
-        #            0, None, win32file.OPEN_EXISTING, win32file.FILE_ATTRIBUTE_NORMAL, None)
-
-        # Set the read or blocking mode of the named pipe
-        #res = win32pipe.SetNamedPipeHandleState(self.pipe, win32pipe.PIPE_READMODE_MESSAGE, None, None)
-        #if res == 0:
-            #print(f"SetNamedPipeHandleState Return Code: {res}")   # if function fails, the return value will be zero
-        self.pipe = wpipe.Client(self.pipename, wpipe.Mode.Master)
+        self.pipe = lesser_pipe.ExhaustingPipe(self.pipename)
 
     def stop(self):        
         if self.pipe:
@@ -38,31 +27,9 @@ class TipiSeafWindowsNamedPipeTransport(SearpcTransport):
         body = json.dumps({
             'service': service,
             'request': fcall_str,
-        })        
+        }) 
 
-        body_utf8 = body.encode(encoding='utf-8')
-        header = struct.pack('=I', len(body_utf8)) # "I" for unsiged int
-        #print("send: ", message)
-        # send the message
-        self.pipe.writePartial(header) # writing header then sending follow up part with message as the seaf implementation reads twice
-        self.pipe.write(body_utf8)
-        reply = self.pipe.read()
-        
-        if reply is None or isinstance(reply, str): 
-          return ""
-        
-        resp_size = struct.unpack('=I', reply[:4])[0]
-        #print('resp_size is %s', resp_size)
-
-        self.pipe.endtransaction()
-        reply = self.pipe.read()
-        # read the actual response
-
-        if len(reply) != resp_size:
-            raise ValueError(f"Got {len(reply)} bytes of reponse instead of expected {resp_size}")
-
-        return reply.decode(encoding='utf-8')
-
+        return self.pipe.seaf_transaction(body)
 
 class TipiSeafWindowsNamedPipeClient(SearpcClient):
     def __init__(self, pipename, service_name):
