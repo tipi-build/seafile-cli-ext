@@ -44,6 +44,9 @@ class Mode:
 
 
 class Base:
+    def __init__(self) -> None:
+        self.stopping = False
+
     def readerentry(self, nph, client, mode, server):
         rq = client.rq
         wq = client.wq
@@ -58,9 +61,15 @@ class Base:
                 writes have been completed. If we never need to read
                 then we should be using Mode.Writer not Mode.Master.
             '''
+            def is_stopping():
+                return self.stopping
+
             if mode == Mode.Master:
                 with client.rwait:
-                    client.rwait.wait()
+                    client.rwait.wait(timeout=0.1)
+
+            if(self.stopping):
+                return
 
             cnt = b'\x00\x00\x00\x00'
             with client.rlock:
@@ -71,10 +80,7 @@ class Base:
             #print("rlock read: ", ret)
 
             if ret == 0:
-                rq.put(None)                    # signal reader that pipe is dead
-                wq.put(None)                    # signal write thread to terminate
-                client.alive = False
-                return
+                continue
 
             #print("cnt: ", cnt)
             cnt = struct.unpack('I', cnt)[0]
@@ -100,9 +106,13 @@ class Base:
         wq = client.wq
 
         while True:
-            rawmsg = wq.get()
-            if rawmsg is None:
-                return
+            rawmsg = ""
+
+            try:
+                rawmsg = wq.get(timeout=0.1)
+            except:
+                if self.stopping: return
+                else: continue
 
             written = b'\x00\x00\x00\x00'
 
@@ -190,6 +200,7 @@ class Client(Base):
         self.mode = mode
         self.maxmessagesz = maxmessagesz
         self.name = name
+        self.stopping = False
         self.handle = hk32['CreateFileA'](
             ctypes.c_char_p(b'\\\\.\\pipe\\' + bytes(name, 'utf8')),
             ctypes.c_uint(GENERIC_READ | GENERIC_WRITE),
@@ -238,6 +249,7 @@ class Client(Base):
         self.client.endtransaction()
 
     def close(self):
+        self.stopping = True
         hk32['CloseHandle'](ctypes_handle(self.handle))
         self.endtransaction()
 
